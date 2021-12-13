@@ -1,4 +1,4 @@
-module github.com/Tigranbabajanyan/message-client-service
+module github.com/Varmtech/amqp-queue
 
 go 1.15
 

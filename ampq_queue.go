@@ -176,10 +176,6 @@ func (rabbitQueue *RabbitQueue) startReconnector() {
 	}
 }
 
-func dummyReturn () string {
-	return "Hi"
-}
-
 func connectInternal(url string, heartbeat int) (*amqp.Connection, *amqp.Channel, error) {
 	duration := 5 * time.Second
 	con, err := amqp.DialConfig(url, amqp.Config{
