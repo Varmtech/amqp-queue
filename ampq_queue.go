@@ -1,4 +1,4 @@
-package micro_connect_service
+package amqp_queue
 
 import (
 	"github.com/streadway/amqp"

@@ -1,4 +1,4 @@
-package micro_connect_service
+package amqp_queue
 
 type ExchangeDeclare struct {
 	Name       string // name
