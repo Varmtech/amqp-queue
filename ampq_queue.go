@@ -8,6 +8,7 @@ import (
 
 type Queue interface {
 	Connect() error
+	NewChannel() (*amqp.Channel, error)
 	NotifyState(receiver chan string)
 	GetState() string
 	PublishOnQueue(message []byte, queueName string) error
@@ -16,13 +17,12 @@ type Queue interface {
 }
 
 type RabbitQueue struct {
-	url string
-	channel *amqp.Channel
-	connection *amqp.Connection
-	state string
+	url            string
+	channel        *amqp.Channel
+	connection     *amqp.Connection
+	state          string
 	stateReceivers []chan string
 }
-
 
 func NewMessageClient(connUrl string) (*RabbitQueue, error) {
 	q := &RabbitQueue{
@@ -31,7 +31,7 @@ func NewMessageClient(connUrl string) (*RabbitQueue, error) {
 	return q, nil
 }
 
-func (rabbitQueue *RabbitQueue) Connect() (error) {
+func (rabbitQueue *RabbitQueue) Connect() error {
 	con, ch, err := connectInternal(rabbitQueue.url, 2)
 	if err != nil {
 		return err
@@ -39,15 +39,23 @@ func (rabbitQueue *RabbitQueue) Connect() (error) {
 	rabbitQueue.connection = con
 	rabbitQueue.channel = ch
 	rabbitQueue.state = "ready"
-	go rabbitQueue.startReconnector()
+	go rabbitQueue.startReconnect()
 	return nil
 }
 
-func (rabbitQueue *RabbitQueue) NotifyState (receiver chan string) {
+func (rabbitQueue *RabbitQueue) NewChannel() (*amqp.Channel, error) {
+	channel, err := rabbitQueue.connection.Channel()
+	if err != nil {
+		return nil, err
+	}
+	return channel, nil
+}
+
+func (rabbitQueue *RabbitQueue) NotifyState(receiver chan string) {
 	rabbitQueue.stateReceivers = append(rabbitQueue.stateReceivers, receiver)
 }
 
-func (rabbitQueue *RabbitQueue) GetState() string  {
+func (rabbitQueue *RabbitQueue) GetState() string {
 	return rabbitQueue.state
 }
 
@@ -79,21 +87,8 @@ func (rabbitQueue *RabbitQueue) PublishOnQueue(message []byte, queueName string)
 }
 
 func (rabbitQueue *RabbitQueue) PublishOnExchange(message []byte, exchange *ExchangeDeclare, routingKey string) error {
-	err := rabbitQueue.channel.ExchangeDeclare(
-		exchange.Name,       // name
-		exchange.Kind,       // type
-		exchange.Durable,    // durable
-		exchange.AutoDelete, // auto-deleted
-		exchange.Internal,   // internal
-		exchange.noWait,     // no-wait
-		nil,                 // arguments
-	)
 
-	if err != nil {
-		return err
-	}
-
-	err = rabbitQueue.channel.Publish(
+	err := rabbitQueue.channel.Publish(
 		exchange.Name, // exchange
 		routingKey,    // routing key
 		false,         // mandatory
@@ -123,7 +118,7 @@ func (rabbitQueue *RabbitQueue) SubscribeToQueue(queueName string, consumerName 
 	msgs, err := rabbitQueue.channel.Consume(
 		queue.Name,   // queue
 		consumerName, // consumer
-		true,         // auto-ack
+		false,        // auto-ack
 		false,        // exclusive
 		false,        // no-local
 		false,        // no-wait
@@ -145,8 +140,7 @@ func (rabbitQueue *RabbitQueue) SubscribeToQueue(queueName string, consumerName 
 
 // re-establish the connection to RabbitMQ in case
 // the connection has died
-//
-func (rabbitQueue *RabbitQueue) startReconnector() {
+func (rabbitQueue *RabbitQueue) startReconnect() {
 	for {
 		rabbitCloseError := make(chan *amqp.Error)
 		rabbitQueue.connection.NotifyClose(rabbitCloseError)
