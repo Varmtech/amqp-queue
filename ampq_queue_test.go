@@ -3,20 +3,24 @@ package amqp_queue
 import (
 	"encoding/json"
 	"github.com/streadway/amqp"
-	"log"
 	"testing"
 )
 
 func TestPublishOnQueue(t *testing.T) {
 
-	conn := setupRabbitMQ()
-
-	client := NewMessageClient(conn)
+	client, err := NewMessageClient("amqp://guest:guest@192.168.178.62:5672/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = client.Connect()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	testData := "some test string"
 	data, _ := json.Marshal(testData)
 
-	err := client.PublishOnQueue(data, "testQueue")
+	err = client.PublishOnQueue(data, "testQueue")
 
 	if err != nil {
 		t.Fatal(err)
@@ -25,21 +29,22 @@ func TestPublishOnQueue(t *testing.T) {
 
 func TestPublishOnTopic(t *testing.T) {
 
-	conn := setupRabbitMQ()
-
-	client := NewMessageClient(conn)
+	client, err := NewMessageClient("amqp://guest:guest@192.168.178.62:5672/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = client.Connect()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	testData := "some test string"
 	data, _ := json.Marshal(testData)
 
-	err := client.PublishOnExchange(data, &ExchangeDeclare{
-		Name:       "test",
-		Kind:       "topic",
-		Durable:    true,
-		AutoDelete: false,
-		Internal:   false,
-		noWait:     false,
-	}, "test.message")
+	err = client.PublishOnExchange("test", "test.message", &amqp.Publishing{
+		ContentType: "text/plain",
+		Body:        data,
+	})
 
 	if err != nil {
 		t.Fatal(err)
@@ -48,25 +53,20 @@ func TestPublishOnTopic(t *testing.T) {
 
 func TestSubscribeToQueue(t *testing.T) {
 
-	conn := setupRabbitMQ()
+	client, err := NewMessageClient("amqp://guest:guest@192.168.178.62:5672/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = client.Connect()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	client := NewMessageClient(conn)
-
-	err := client.SubscribeToQueue("testQueue", "consumerTest", func(delivery amqp.Delivery) {
+	err = client.SubscribeToQueue("testQueue", "consumerTest", func(delivery amqp.Delivery) {
 
 	})
 
 	if err != nil {
 		t.Fatal(err)
 	}
-}
-
-func setupRabbitMQ() *amqp.Connection {
-	conn, err := amqp.Dial("amqp://guest:guest@52.59.231.30:5672/")
-
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	return conn
 }

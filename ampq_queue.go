@@ -86,17 +86,13 @@ func (rabbitQueue *RabbitQueue) PublishOnQueue(message []byte, queueName string)
 	return err
 }
 
-func (rabbitQueue *RabbitQueue) PublishOnExchange(message []byte, exchange *ExchangeDeclare, routingKey string) error {
-
+func (rabbitQueue *RabbitQueue) PublishOnExchange(exchangeName, routingKey string, publishing *amqp.Publishing) error {
 	err := rabbitQueue.channel.Publish(
-		exchange.Name, // exchange
-		routingKey,    // routing key
-		false,         // mandatory
-		false,         // immediate
-		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        message,
-		})
+		exchangeName, // exchange
+		routingKey,   // routing key
+		false,        // mandatory
+		false,        // immediate
+		*publishing)
 
 	return err
 }
